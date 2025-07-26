@@ -1,0 +1,10 @@
+build/
+.cache/
+compile_commands.json
+*.exe
+*.out
+*.o
+*.d
+*.log
+liblogger.a
+.vscode
