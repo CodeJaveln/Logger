@@ -9,6 +9,10 @@
 static FILE *file_stream = NULL;
 
 int logger_init(const char *log_filename) {
+    if (file_stream) {
+        fclose(file_stream);
+    }
+
     file_stream = fopen(log_filename, "a");
     if (!file_stream) {
         return -1;
@@ -20,30 +24,50 @@ int logger_init(const char *log_filename) {
     return 0;
 }
 
+void logger_close(void) {
+    if (!file_stream) {
+        fprintf(stderr, "called logger_close with invalid file stream\n");
+        return;
+    }
+
+    logger_info("logger session ended\n");
+
+    fclose(file_stream);
+}
+
+// Add a space first in the level string if not empty, otherwise it would be: "TIME:[WARNING] "
+static void logger_log(const char *level, const char *format, va_list args) {
+    time_t rawtime;
+    struct tm *timeinfo;
+
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+
+    char buf[BUFFER_MAXLEN];
+    strftime(buf, BUFFER_MAXLEN, "%H:%M:%S", timeinfo);
+
+    fprintf(file_stream, "%s:%s ", buf, level);
+
+    vfprintf(file_stream, format, args);
+
+    fprintf(file_stream, "\n");
+
+    fflush(file_stream);
+}
+
 int logger_info(const char *format, ...) {
     if (!file_stream) {
         fprintf(stderr, "called logger_info without running logger_init first\n");
         return -1;
     }
-    time_t rawtime;
-    struct tm *timeinfo;
+
     va_list args;
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    char buf[BUFFER_MAXLEN];
-
-    strftime(buf, BUFFER_MAXLEN, "%H:%M:%S", timeinfo);
-
-    fprintf(file_stream, "%s: ", buf);
 
     va_start(args, format);
 
-    vfprintf(file_stream, format, args);
+    logger_log("", format, args);
 
     va_end(args);
-
-    fprintf(file_stream, "\n");
 
     return 0;
 }
@@ -53,26 +77,14 @@ int logger_warning(const char *format, ...) {
         fprintf(stderr, "called logger_warning without running logger_init first\n");
         return -1;
     }
-    time_t rawtime;
-    struct tm *timeinfo;
+
     va_list args;
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    char buf[BUFFER_MAXLEN];
-
-    strftime(buf, BUFFER_MAXLEN, "%H:%M:%S", timeinfo);
-
-    // Only change from info!
-    fprintf(file_stream, "%s: [WARNING] ", buf);
 
     va_start(args, format);
 
-    vfprintf(file_stream, format, args);
+    logger_log(" [WARNING]", format, args);
 
     va_end(args);
-
-    fprintf(file_stream, "\n");
 
     return 0;
 }
@@ -82,31 +94,14 @@ int logger_error(const char *format, ...) {
         fprintf(stderr, "called logger_error without running logger_init first\n");
         return -1;
     }
-    time_t rawtime;
-    struct tm *timeinfo;
+
     va_list args;
-
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    char buf[BUFFER_MAXLEN];
-
-    strftime(buf, BUFFER_MAXLEN, "%H:%M:%S", timeinfo);
-
-    fprintf(file_stream, "%s: [ERROR] ", buf);
 
     va_start(args, format);
 
-    vfprintf(file_stream, format, args);
+    logger_log(" [ERROR]", format, args);
 
     va_end(args);
 
-    fprintf(file_stream, "\n");
-
     return 0;
-}
-
-void logger_close(void) {
-    logger_info("logger session ended\n");
-
-    fclose(file_stream);
 }
